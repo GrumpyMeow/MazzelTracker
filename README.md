@@ -1,5 +1,19 @@
 # MazzelTracker fork
 This is a fork of the CubeCell-GPS-Helium-Mapper repository of Max-Plastix. In this repository i've made changes to use CubeCell device to track my dog called "Mazzel" (english translation: ~= "Lucky").
+I've chosen the CubeCell device because of it's smaller form-factor.
+
+Changes i've made:
+* I got rid of battery-level dependent logic. I prefer a more predictable behaviour of the update pattern.
+* I use my GPS tracker as an always-on device.
+* Got rid of commented/debug statements.
+* Got rid of header switching between displaying different
+* Customized RGB-LED to:
+  * Blink "Green" when transmitting a packet
+  * Blink "Red" when Lorawan join failed
+
+
+## ToDo's
+* Look into: https://amazonwebservices.hackster.io/mithun-das/vfence-keep-your-pets-and-kids-within-virtual-fence-6e60b2
 
 # Overview
 Helium Mapper build for the **Heltec CubeCell GPS-6502 HTCC-AB02S**

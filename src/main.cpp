@@ -1,5 +1,5 @@
 /*
- * Max-Plastix Mapper build for
+ * MazzelTracker build for
  * Heltec CubeCell GPS-6502 HTCC-AB02S
  *
  * Based on the CubeCell GPS example from
@@ -26,6 +26,9 @@
 #include "cyPm.h"             // For deep sleep
 #include "hw.h"               // for CyDelay()
 #include "timeServer.h"       // Timer handlers
+#include "CubeCell_NeoPixel.h"
+
+CubeCell_NeoPixel pixels(1, RGB, NEO_GRB + NEO_KHZ800);
 
 //#include "TinyGPS++.h"        // More recent/superior library
 
@@ -161,34 +164,20 @@ char buffer[40];  // Scratch string buffer for display strings
 void onDeepSleepTimer(void);
 void onJoinFailTimer(void);
 
-// SK6812 (WS2812).  DIN is IO13/GP13/Pin45
-void testRGB(void) {
-  for (uint32_t i = 0; i <= 30; i++) {
-    turnOnRGB(i << 16, 10);
-  }
-  for (uint32_t i = 0; i <= 30; i++) {
-    turnOnRGB(i << 8, 10);
-  }
-  for (uint32_t i = 0; i <= 30; i++) {
-    turnOnRGB(i, 10);
-  }
-  turnOnRGB(0, 0);
-}
-
-// RGB LED power on (Vext to SK5812 pin 4)
+// Turn external V on (OLED, RGB LED power on (Vext to SK5812 pin 4)
 void VextON(void) {
   pinMode(Vext, OUTPUT);
   digitalWrite(Vext, LOW);
 }
 
-// RGB LED power off
+// Turn external V off (OLED, RGB LED power off
 void VextOFF(void) {
   pinMode(Vext, OUTPUT);
   digitalWrite(Vext, HIGH);
 }
 
 void printGPSInfo(void) {
-  // Serial.print("Date/Time: ");
+  Serial.print("Date/Time: ");
   if (GPS.date.isValid()) {
     Serial.printf("%d-%02d-%02d", GPS.date.year(), GPS.date.month(), GPS.date.day());
   } else {
@@ -381,7 +370,7 @@ void update_gps() {
     last_fix_ms = millis();
     if (firstfix) {
       firstfix = false;
-      snprintf(buffer, sizeof(buffer), "GPS fix: %d sec\n", (last_fix_ms - gps_start_time) / 1000);
+      snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d GPS-fix %ds\n", GPS.time.hour(), GPS.time.minute(), GPS.time.second(), (last_fix_ms - gps_start_time) / 1000);
       screen_print(buffer);
       printGPSInfo();
     }
@@ -629,57 +618,41 @@ void gps_time(char *buffer, uint8_t size) {
 void screen_header(void) {
   uint32_t sats;
   uint32_t now = millis();
-  char bat_level = '?';
 
-  sats = GPS.satellites.value();
+  
+  disp->drawXbm(0, 0, TX_IMAGE_WIDTH, TX_IMAGE_HEIGHT, TX_IMAGE);
 
-  // Cycle display every 3 seconds
-  if (millis() % 6000 < 3000) {
-    // 2 bytes of Device EUI with Voltage and Current
-    snprintf(buffer, sizeof(buffer), "#%04X", (devEui[6] << 8) | devEui[7]);
-    disp->setTextAlignment(TEXT_ALIGN_LEFT);
-    disp->drawString(0, 2, buffer);
+  snprintf(buffer, sizeof(buffer), "%d", UpLinkCounter);
+  disp->setTextAlignment(TEXT_ALIGN_LEFT);
+  disp->drawString(0 + TX_IMAGE_WIDTH + 4, 2, buffer);
 
-    snprintf(buffer, sizeof(buffer), "%d.%02dV", battery_mv / 1000, (battery_mv % 1000) / 10);
-  } else {
-    if (!GPS.time.isValid() || sats < 3)
-      snprintf(buffer, sizeof(buffer), "*** NO GPS ***");
-    else
-      gps_time(buffer, sizeof(buffer));
-  }
-
+  snprintf(buffer, sizeof(buffer), "%d.%02dV", battery_mv / 1000, (battery_mv % 1000) / 10);
   disp->setTextAlignment(TEXT_ALIGN_CENTER);
   disp->drawString(disp->getWidth() / 2, 2, buffer);
 
   // Satellite count
   disp->setTextAlignment(TEXT_ALIGN_RIGHT);
+  sats = GPS.satellites.value();
   disp->drawString(disp->getWidth() - SATELLITE_IMAGE_WIDTH - 4, 2, itoa(sats, buffer, 10));
   disp->drawXbm(disp->getWidth() - SATELLITE_IMAGE_WIDTH, 0, SATELLITE_IMAGE_WIDTH, SATELLITE_IMAGE_HEIGHT, SATELLITE_IMAGE);
 
-  if (battery_mv > USB_POWER_VOLTAGE * 1000)
-    bat_level = 'U';
-  else if (battery_mv > REST_LOW_VOLTAGE * 1000)
-    bat_level = 'H';
-  else if (battery_mv > SLEEP_LOW_VOLTAGE * 1000)
-    bat_level = 'L';
-  else
-    bat_level = 'Z';
-
   // Second status row:
-  snprintf(buffer, sizeof(buffer), "%ds / %ds   %dm  %c%c%c%c\n",
+  snprintf(buffer, sizeof(buffer), "%3ds / %3ds   %dm\n",
            (now - last_send_ms) / 1000,  // Time since last send
            tx_time_ms / 1000,            // Interval Time
-           (int)min_dist_moved,          // Interval Distance
-           bat_level,                    // U for Unlimited Power (USB), Hi, Low, Zero
-           stay_on ? 'S' : '-',          // S for Screen Stay ON
-           in_deadzone ? 'D' : '-',      // D for Deadzone
-           !is_joined ? 'X' : '-'        // X for Not Joined Yet
+           (int)min_dist_moved          // Interval Distance
   );
   disp->setTextAlignment(TEXT_ALIGN_LEFT);
   disp->drawString(0, 12, buffer);
 
-  // disp->setTextAlignment(TEXT_ALIGN_RIGHT);
-  // disp->drawString(disp->getWidth(), 12, cached_sf_name);
+  snprintf(buffer, sizeof(buffer), "%c %c %c\n",
+           stay_on ? 'S' : '-',          // S for Screen Stay ON
+           in_deadzone ? 'D' : '-',      // D for Deadzone
+           !is_joined ? 'X' : '-'        // X for Not Joined Yet
+  ); 
+
+  disp->setTextAlignment(TEXT_ALIGN_RIGHT);
+  disp->drawString(disp->getWidth() , 12, buffer);
 
   disp->drawHorizontalLine(0, SCREEN_HEADER_HEIGHT, disp->getWidth());
 }
@@ -710,6 +683,9 @@ void draw_screen(void) {
 }
 
 void setup() {
+  pixels.begin(); 
+  pixels.clear(); 
+
   boardInitMcu();
 
   Serial.begin(115200);
@@ -747,7 +723,6 @@ void setup() {
   attachInterrupt(USER_KEY, userKeyIRQ, BOTH);
 
   screen_setup();
-  screen_print(APP_VERSION "\n");
 
   TimerInit(&KeyDownTimer, onKeyDownTimer);
   TimerSetValue(&KeyDownTimer, LONG_PRESS_MS);
@@ -805,11 +780,17 @@ boolean send_lost_uplink() {
   appData[appDataSize++] = puc[1];
   appData[appDataSize++] = puc[0];
 
-  snprintf(buffer, sizeof(buffer), "%d NO-GPS %dmin\n", UpLinkCounter, lost_minutes);
+  snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d NO-GPS  %dmin\n", GPS.time.hour(), GPS.time.minute(), GPS.time.second(), lost_minutes);
   screen_print(buffer);
 
   last_lost_gps_ms = now;
+  pixels.setPixelColor(0, pixels.Color(255, 0, 0));
+  pixels.show();
+  
   LoRaWAN.send();
+
+  pixels.setPixelColor(0, pixels.Color(0, 0, 0));
+  pixels.show();
 
   return true;
 }
@@ -861,15 +842,9 @@ boolean send_uplink(void) {
 #endif
 
   /* Set tx interval (and screen state!) based on time since last movement: */
-  if ((now - last_moved_ms < REST_WAIT_S * 1000) && (battery_mv > REST_LOW_VOLTAGE * 1000)) {
-    // If we recently moved and battery is good.. keep the update rate high and screen on
+  if (now - last_moved_ms < REST_WAIT_S * 1000) {
     tx_time_ms = max_time_ms;
-    need_light_sleep = false;
-    need_deep_sleep_s = 0;
-  } else if (battery_mv > USB_POWER_VOLTAGE * 1000) {
-    // Don't slow down on USB power, or topped-off battery, ever
-    tx_time_ms = max_time_ms;
-    // However, OLED screens can burn-in, so do turn it off while stationary
+    // OLED screens can burn-in, so do turn it off while stationary
     need_light_sleep = (now - last_moved_ms > REST_WAIT_S * 1000);
     need_deep_sleep_s = 0;
   } else if (now - last_moved_ms > SLEEP_WAIT_S * 1000) {
@@ -878,7 +853,7 @@ boolean send_uplink(void) {
     need_light_sleep = true;
     need_deep_sleep_s = SLEEP_TIME_S;
   } else {
-    // Parked/stationary or battery below REST_LOW_VOLTAGE
+    // Parked/stationary
     need_light_sleep = true;
     need_deep_sleep_s = 0;  // Keep GPS on
     tx_time_ms = rest_time_ms;
@@ -925,15 +900,17 @@ boolean send_uplink(void) {
     dist_moved = 0;
 
   printGPSInfo();
-  snprintf(buffer, sizeof(buffer), "%d %c %ds %dm\n", UpLinkCounter, because, (now - last_send_ms) / 1000, (int32_t)dist_moved);
-  // Serial.print(buffer);
+  snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d %3d: %c %3ds %3dm\n", GPS.time.hour(), GPS.time.minute(), GPS.time.second(), UpLinkCounter, because, (now - last_send_ms) / 1000, (int32_t)dist_moved);
   screen_print(buffer);
 
-  // Serial.println("send..");
+  pixels.setPixelColor(0, pixels.Color(0, 255, 0));
+  pixels.show();
+
   last_send_ms = now;
   LoRaWAN.send();
-  // Serial.println("..sent");
-
+  
+  pixels.setPixelColor(0, pixels.Color(0, 0, 0));
+  pixels.show();
   return true;
 }
 
@@ -1014,13 +991,18 @@ void deepest_sleep(uint32_t sleepfor_s) {
 }
 
 void onJoinFailTimer(void) {
-  screen_print("Join timed out!\n");
-
+  pixels.setPixelColor(0, pixels.Color(255, 0, 0));
+  pixels.show();
+  snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d Not joined\n", GPS.time.hour(), GPS.time.minute(), GPS.time.second());
+  screen_print(buffer);
+  
   //need_deep_sleep_s = JOIN_RETRY_TIME_S;
   // Now try again
 
   TimerReset(&JoinFailTimer);
   TimerStart(&JoinFailTimer);
+  pixels.setPixelColor(0, pixels.Color(0, 0, 0));
+  pixels.show();
 }
 
 void loop() {
@@ -1042,7 +1024,6 @@ void loop() {
     need_deep_sleep_s = 0;
   }
 
-  // Serial.print(".");
   update_gps();  // Digest any pending bytes to update position
 
   switch (deviceState) {
@@ -1059,15 +1040,12 @@ void loop() {
       break;
     }
     case DEVICE_STATE_JOIN: {
-      // Serial.print("[JOIN] ");
       TimerSetValue(&JoinFailTimer, JOIN_TIMEOUT_S * 1000);
       TimerStart(&JoinFailTimer);
-      LoRaWAN.displayJoining();
       LoRaWAN.join();
       break;
     }
     case DEVICE_STATE_SEND: {
-      // Serial.print("[SEND] ");
       TimerStop(&JoinFailTimer);
       if (!is_joined) {
         is_joined = true;
@@ -1080,19 +1058,17 @@ void loop() {
       break;
     }
     case DEVICE_STATE_CYCLE: {
-      // Serial.print("[CYCLE] ");
       LoRaWAN.cycle(appTxDutyCycle);  // Sets a timer to check state
       deviceState = DEVICE_STATE_SLEEP;
       break;
     }
     case DEVICE_STATE_SLEEP: {
-      // Serial.print("[SLEEP] ");
       wakeByUart = true;  // Without this, sleeps through GPS
       LoRaWAN.sleep();    // Causes serial port noise if it does sleep
       break;
     }
     default: {
-      Serial.printf("Surprising state: %d\n", deviceState);
+      Serial.printf("Unexpected state: %d\n", deviceState);
       deviceState = DEVICE_STATE_INIT;
       break;
     }
