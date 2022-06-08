@@ -68,7 +68,7 @@ LoRaMacRegion_t loraWanRegion = ACTIVE_REGION;
 DeviceClass_t loraWanClass = LORAWAN_CLASS;
 
 /* Application data transmission duty cycle.  value in [ms]. */
-uint32_t appTxDutyCycle = 1000 - 100;  // Must be a bit less than GPS update rate!
+uint32_t appTxDutyCycle = 2000 - 100;  // Must be a bit less than GPS update rate!
 
 /* OTAA or ABP.  (Helium only supports OTAA) */
 bool overTheAirActivation = LORAWAN_NETMODE;
@@ -321,13 +321,6 @@ void configure_gps(void) {
 
   AirGPS.setNMEA(NMEA_RMC | NMEA_GGA);  // Eliminate unused message traffic like SV
   delay(50);
-
-#if 0
-  // GPSSerial.write("$PCAS02,500*1A\r\n"); /* 500mS updates */
-  GPSSerial.write("$PCAS02,1000*2E\r\n"); /* 1S updates */
-  GPSSerial.flush();
-  delay(50);
-#endif
 }
 
 void start_gps(void) {
@@ -370,7 +363,7 @@ void update_gps() {
     last_fix_ms = millis();
     if (firstfix) {
       firstfix = false;
-      snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d GPS-fix %ds\n", GPS.time.hour(), GPS.time.minute(), GPS.time.second(), (last_fix_ms - gps_start_time) / 1000);
+      snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d GPS-fix took %ds\n", GPS.time.hour(), GPS.time.minute(), GPS.time.second(), (last_fix_ms - gps_start_time) / 1000);
       screen_print(buffer);
       printGPSInfo();
     }
@@ -619,25 +612,28 @@ void screen_header(void) {
   uint32_t sats;
   uint32_t now = millis();
 
-  
   disp->drawXbm(0, 0, TX_IMAGE_WIDTH, TX_IMAGE_HEIGHT, TX_IMAGE);
 
   snprintf(buffer, sizeof(buffer), "%d", UpLinkCounter);
   disp->setTextAlignment(TEXT_ALIGN_LEFT);
-  disp->drawString(0 + TX_IMAGE_WIDTH + 4, 2, buffer);
+  disp->drawString(0 + TX_IMAGE_WIDTH + 2, 2, buffer);
+
+  snprintf(buffer, sizeof(buffer), "%d", 0);
+  disp->drawXbm(TX_IMAGE_WIDTH + 24, 0, RX_IMAGE_WIDTH, RX_IMAGE_HEIGHT, RX_IMAGE);
+  disp->drawString(TX_IMAGE_WIDTH + 24 + RX_IMAGE_WIDTH + 2, 2, buffer);
 
   snprintf(buffer, sizeof(buffer), "%d.%02dV", battery_mv / 1000, (battery_mv % 1000) / 10);
-  disp->setTextAlignment(TEXT_ALIGN_CENTER);
+  disp->setTextAlignment(TEXT_ALIGN_LEFT);
   disp->drawString(disp->getWidth() / 2, 2, buffer);
 
   // Satellite count
   disp->setTextAlignment(TEXT_ALIGN_RIGHT);
   sats = GPS.satellites.value();
-  disp->drawString(disp->getWidth() - SATELLITE_IMAGE_WIDTH - 4, 2, itoa(sats, buffer, 10));
+  disp->drawString(disp->getWidth() - SATELLITE_IMAGE_WIDTH - 2, 2, itoa(sats, buffer, 10));
   disp->drawXbm(disp->getWidth() - SATELLITE_IMAGE_WIDTH, 0, SATELLITE_IMAGE_WIDTH, SATELLITE_IMAGE_HEIGHT, SATELLITE_IMAGE);
 
   // Second status row:
-  snprintf(buffer, sizeof(buffer), "%3ds / %3ds   %dm\n",
+  snprintf(buffer, sizeof(buffer), "%3d/%3ds  %dm\n",
            (now - last_send_ms) / 1000,  // Time since last send
            tx_time_ms / 1000,            // Interval Time
            (int)min_dist_moved          // Interval Distance
@@ -996,8 +992,7 @@ void onJoinFailTimer(void) {
   snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d Not joined\n", GPS.time.hour(), GPS.time.minute(), GPS.time.second());
   screen_print(buffer);
   
-  //need_deep_sleep_s = JOIN_RETRY_TIME_S;
-  // Now try again
+  need_deep_sleep_s = JOIN_RETRY_TIME_S;
 
   TimerReset(&JoinFailTimer);
   TimerStart(&JoinFailTimer);

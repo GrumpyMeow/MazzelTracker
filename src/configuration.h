@@ -1,6 +1,6 @@
 // Version
 #define APP_NAME "Cube Mapper"
-#define APP_VERSION "Mzzl v2.3.8"
+#define APP_VERSION "Mazzel-Tracker"
 
 // -----------------------------------------------------------------------------
 // CONFIGURATION
@@ -8,7 +8,7 @@
 // -----------------------------------------------------------------------------
 
 // The Mapper is always sending when it either moves some DISTANCE, or waits some TIME:
-#define MIN_DIST_M 10.0       // Minimum distance (meters) from the last sent location before we can send again. A hex is about 340m.
+#define MIN_DIST_M 100.0       // Minimum distance (meters) from the last sent location before we can send again. A hex is about 340m.
 #define MAX_TIME_S (10 * 60)  // If no minimum movement, uplink will still be sent every N seconds
 
 // After a while, it still watches GPS, but turns the display OFF and sends slower:
@@ -24,7 +24,7 @@
 #define GPS_LOST_WAIT_S ( 5 * 60)   // How long after losing GPS do we call it lost?
 #define GPS_LOST_TIME_S (15 * 60)   // How often to send Lost GPS packets?
 
-#define JOIN_TIMEOUT_S    (5 * 60)  // How long to spend trying to Join/re-Join
+#define JOIN_TIMEOUT_S    (1 * 60)  // How long to spend trying to Join/re-Join
 #define JOIN_RETRY_TIME_S (5 * 60)  // Join Timeout/Retry sleep interval
 
 // Deadzone defines a circular area where no map packets will originate.
