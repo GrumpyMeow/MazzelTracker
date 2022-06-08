@@ -1,3 +1,6 @@
+# MazzelTracker fork
+This is a fork of the CubeCell-GPS-Helium-Mapper repository of Max-Plastix. In this repository i've made changes to use CubeCell device to track my dog called "Mazzel" (english translation: ~= "Lucky").
+
 # Overview
 Helium Mapper build for the **Heltec CubeCell GPS-6502 HTCC-AB02S**
 
